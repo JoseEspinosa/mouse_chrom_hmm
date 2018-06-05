@@ -1,0 +1,162 @@
+#!/usr/bin/env Rscript
+
+#  Copyright (c) 2014-2018, Centre for Genomic Regulation (CRG).
+#  Copyright (c) 2014-2018, Jose Espinosa-Carrasco and the respective authors.
+#
+#  This file is part of Pergola.
+#
+#  Pergola is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Pergola is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with Pergola.  If not, see <http://www.gnu.org/licenses/>.
+#############################################################################
+### Jose Espinosa-Carrasco NPMMD/CB-CRG Group. June 2018                  ###
+#############################################################################
+### Mice data set visualization using Gviz                                ###
+#############################################################################
+
+##Getting HOME directory
+home <- Sys.getenv("HOME")
+
+### Execution example
+## Rscript plot_HMM_segmentation.R --path_bed_files="path_to_bed_files"
+library("ggplot2")
+
+{
+  if("Gviz" %in% rownames(installed.packages(lib.loc="/gviz/time")) == TRUE) {
+    library("Gviz", lib.loc="/gviz/time")
+  }
+  else {
+    library("Gviz")
+  }
+}
+
+## bed files to GRanges
+library("GenomicRanges")
+library("rtracklayer")
+
+# Loading params plot:
+source("https://raw.githubusercontent.com/cbcrg/mwm/master/lib/R/plot_param_public.R")
+
+#####################
+### VARIABLES
+#Reading arguments
+args <- commandArgs (TRUE) #if not it doesn't start to count correctly
+
+## Default setting when no arguments passed
+if ( length(args) < 1) {
+  args <- c("--help")
+}
+
+## Help section
+if("--help" %in% args) {
+  cat("
+      density_heatmaps_tracking.R
+      
+      Arguments:
+      --path_bed_files=path_bed_files - character
+      --image_format=image_format        - character
+      --help                             - print this text
+      
+      Example:      
+      ./plot_HMM_segmentation.R --path_bed_files=\"path_bed_files\" --image_format=\"image_format\" \n")
+  
+  q (save="no")
+}
+
+# Use to parse arguments beginning by --
+parseArgs <- function(x)
+{
+  strsplit (sub ("^--", "", x), "=")
+}
+
+#Parsing arguments
+argsDF <- as.data.frame (do.call("rbind", parseArgs(args)))
+argsL <- as.list (as.character(argsDF$V2))
+names (argsL) <- argsDF$V1
+
+# All arguments are mandatory
+{
+  if (is.null (argsL$path_bed_files))
+  {
+    stop ("[FATAL]: path to bed files not provided", stderr())
+  }
+  else
+  {
+    path_bed_files <- argsL$path_bed_files
+  }
+}
+
+# plot image format
+{
+  if (is.null (argsL$image_format))
+  {
+    image_format <- "tiff"
+    warning ("[Warning]: format for plots not provided, default tiff")
+  }
+  else
+  {
+    image_format <- argsL$image_format
+  }
+}
+
+# Loading params plot:
+source("https://raw.githubusercontent.com/cbcrg/mwm/master/lib/R/plot_param_public.R")
+
+pwd <- getwd()
+
+# path_bed_files <- "/Users/jespinosa/git/mouse_chrom_hmm/results/chromHMM/output_learn" 
+  
+## color blind friendly palette
+cbb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+#############################
+## Read files bed files
+bed_files <- list.files(path=path_bed_files, pattern="dense\\.bed$", full.names=TRUE)
+
+bed_tracks <- lapply(bed_files, function (bed) {
+  id <- gsub(".+tr_(\\d+)(_.+$)", "\\1", bed)
+  bed_GR <- import(bed, format = "bed")
+  tr <- AnnotationTrack(bed_GR, name = paste ("", id, sep=""),
+                        fill=bed_GR$itemRgb)
+  names(tr) <- id
+  return (tr)
+} )
+
+names(bed_tracks) <- as.numeric(gsub(".+tr_(\\d+)(_.+$)", "\\1", bed_files))
+id_mice <- sort(as.numeric(gsub(".+tr_(\\d+)(_.+$)", "\\1", bed_files)))
+
+mice_id_odd <- id_mice [id_mice %% 2 != 0]
+mice_id_even <- id_mice [id_mice %% 2 == 0]
+
+bed_tracks <- bed_tracks[as.character(c(mice_id_odd, mice_id_even))]
+
+## Plot
+plot_name <- "segmentation_HMM"
+
+{
+  if (image_format == 'tiff' | image_format == 'tif') {
+    tiff(paste(plot_name, ".", image_format, sep=""), width = 45 , height = 34, units = "cm", res=300)
+  }
+  else if (image_format == 'pdf') {        
+    pdf(paste(plot_name, ".", image_format, sep=""), height=45, width=34)        
+  }
+  else if (image_format == 'png') {        
+    png(paste(plot_name, ".", image_format, sep=""),  width = 45 , height = 34, units = "cm", res=300) 
+  }
+  else {
+    stop (paste("Unknow image file format:", image_format, sep=" "))
+  }
+}
+
+plotTracks(bed_tracks, stacking="dense", from=0, collapse=FALSE, shape = "box", col=NULL)
+
+dev.off()
