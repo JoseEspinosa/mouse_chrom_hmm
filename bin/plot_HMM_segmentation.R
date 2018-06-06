@@ -20,7 +20,7 @@
 #############################################################################
 ### Jose Espinosa-Carrasco NPMMD/CB-CRG Group. June 2018                  ###
 #############################################################################
-### Mice data set visualization using Gviz                                ###
+### Mice data segmentation from chromHMM visualized using Gviz            ###
 #############################################################################
 
 ##Getting HOME directory
@@ -63,8 +63,10 @@ if("--help" %in% args) {
       
       Arguments:
       --path_bed_files=path_bed_files - character
-      --image_format=image_format        - character
-      --help                             - print this text
+      --ini_time=ini_time             - integer
+      --end_time=end_time             - integer
+      --image_format=image_format     - character
+      --help                          - print this text
       
       Example:      
       ./plot_HMM_segmentation.R --path_bed_files=\"path_bed_files\" --image_format=\"image_format\" \n")
@@ -95,6 +97,33 @@ names (argsL) <- argsDF$V1
   }
 }
 
+# Initial time to plot
+{
+  if (is.null (argsL$ini_time))
+  {
+    ini_time=0
+    write("[WARNING]: Initial time to plot not set, default 0", stderr())
+  }
+  else
+  {
+    # stop (paste (">>>>>>>>>", ini_time))
+    ini_time <- as.integer(argsL$ini_time)
+  }
+}
+
+# End time to plot
+{
+  if (is.null (argsL$end_time))
+  {
+    end_time <- 0
+    write("[WARNING]: Initial time to plot not set, default 0", stderr())
+  }
+  else
+  {
+    end_time <- as.integer(argsL$end_time)
+  }
+}
+
 # plot image format
 {
   if (is.null (argsL$image_format))
@@ -108,16 +137,6 @@ names (argsL) <- argsDF$V1
   }
 }
 
-# Loading params plot:
-source("https://raw.githubusercontent.com/cbcrg/mwm/master/lib/R/plot_param_public.R")
-
-pwd <- getwd()
-
-# path_bed_files <- "/Users/jespinosa/git/mouse_chrom_hmm/results/chromHMM/output_learn" 
-  
-## color blind friendly palette
-cbb_palette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
 #############################
 ## Read files bed files
 bed_files <- list.files(path=path_bed_files, pattern="dense\\.bed$", full.names=TRUE)
@@ -127,9 +146,17 @@ bed_tracks <- lapply(bed_files, function (bed) {
   bed_GR <- import(bed, format = "bed")
   tr <- AnnotationTrack(bed_GR, name = paste ("", id, sep=""),
                         fill=bed_GR$itemRgb)
+  
   names(tr) <- id
+  
   return (tr)
 } )
+
+bed_GR <- import(bed_files[[1]], format = "bed")
+states_names <- unique (bed_GR$name)
+color_by_tr <- unique(bed_GR$itemRgb)
+n_states <- length(states_names)
+names(color_by_tr) <- states_names
 
 names(bed_tracks) <- as.numeric(gsub(".+tr_(\\d+)(_.+$)", "\\1", bed_files))
 id_mice <- sort(as.numeric(gsub(".+tr_(\\d+)(_.+$)", "\\1", bed_files)))
@@ -140,6 +167,58 @@ mice_id_even <- id_mice [id_mice %% 2 == 0]
 bed_tracks <- bed_tracks[as.character(c(mice_id_odd, mice_id_even))]
 
 ## Plot
+
+size_labels <- 12
+cex_gtrack <- 1.4
+g_tr <- GenomeAxisTrack()
+
+## Empty tracks for placing legend
+ctracks <- list()
+for (i in 1:2) {
+  ctracks[[i]] <- CustomTrack(plottingFunction=function(GdObject, prepare, ...) {
+    if(!prepare) grid.text("")
+    return(invisible(GdObject))
+  }, variables=list(i=i))
+  displayPars(ctracks[[i]]) <- list(background.title="transparent")
+}
+
+## creating a legend
+x <- runif(c(1: n_states), 0, 100)
+y <- runif(c(1: n_states), 100, 200)
+
+df_legend <- data.frame(x, y, as.character(c(1: n_states)))
+colnames(df_legend) <- c("x", "y", "n_states")
+
+size_text_leg <- 18
+# size_text_leg <- 10
+df_empty <- data.frame()
+
+plot_legends <- ggplot(df_empty) + geom_point() + 
+  theme(panel.border = element_blank(), 
+        panel.background = element_blank())
+
+size_box_leg <- 6
+# size_box_leg <- 4
+plot_legends <- plot_legends + geom_point(data=df_legend, 
+                                          aes(x=x, y=y, colour = n_states), 
+                                          shape=15, size=size_box_leg) +
+  
+  scale_colour_manual (values=color_by_tr) + 
+  guides(color=guide_legend(title=NULL)) + 
+  theme(legend.position="bottom", legend.justification=c(0, 0), 
+        legend.text=element_text(size=size_text_leg),
+        legend.key = element_rect(fill = "white", colour = "white")) + 
+  geom_blank()
+
+## Extract Legend 
+g_legend <- function(a.gplot){ 
+  tmp <- ggplot_gtable(ggplot_build(a.gplot)) 
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box") 
+  legend <- tmp$grobs[[leg]] 
+  return(legend)} 
+
+leg_groups <- g_legend(plot_legends) 
+
 plot_name <- "segmentation_HMM"
 
 {
@@ -157,6 +236,30 @@ plot_name <- "segmentation_HMM"
   }
 }
 
-plotTracks(bed_tracks, stacking="dense", from=0, collapse=FALSE, shape = "box", col=NULL)
+{ 
+  if (end_time == 0) {
+    plotTracks(c(g_tr, unlist(bed_tracks), unlist(ctracks)), 
+               from=ini_time, 
+               stacking="dense", 
+               collapse=FALSE, 
+               shape = "box", 
+               col=NULL,
+               fontsize=size_labels, 
+               cex=cex_gtrack)
+  }
+  else {
+    plotTracks(c(g_tr, unlist(bed_tracks), unlist(ctracks)), 
+               from=ini_time, to=end_time,
+               stacking="dense", 
+               collapse=FALSE, 
+               shape = "box", 
+               col=NULL,
+               stacking = "dense",
+               fontsize=size_labels, 
+               cex=cex_gtrack)
+  }
+}
+
+grid.draw (leg_groups)
 
 dev.off()

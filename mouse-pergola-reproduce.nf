@@ -409,7 +409,9 @@ process plot_HMM_states {
 
     """
     plot_HMM_segmentation.R --path_bed_files=output_learn \
-                          --image_format=${image_format}
+                            --ini_time=0 \
+                            --end_time=1814400 \
+                            --image_format=${image_format}
     """
 }
 
