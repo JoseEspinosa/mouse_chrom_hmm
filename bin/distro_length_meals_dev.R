@@ -78,6 +78,10 @@ data.frame_bed$length <- data.frame_bed$V3 - data.frame_bed$V2
 x <- data.frame_bed$length 
 # data.frame_bed_lt_1000 <- data.frame_bed [which(data.frame_bed$length > 1000), ]
 
+x_l <- "\nLength of meals"
+y_l <- "Counts\n"
+main_title <- "Distribution of meal length\nduring development\n"
+
 h<-hist (data.frame_bed$length)
 # xfit<-seq(min(x),max(x),length=40) 
 # yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
@@ -120,8 +124,8 @@ ggplot(value, aes(x=value))+ geom_histogram(breaks = c(0, 0.08, 1.2, 8)) +
 ggplot(data.frame_bed, aes(x=length)) +
   stat_density(aes(y=..count..), color="black", fill="blue", alpha=0.3) +
   # scale_x_continuous(breaks=c(0, 30, 120,600), expand=c(0,0)) +
-  scale_y_continuous(breaks=c(0,125,250,375,500,625,750), expand=c(0,0)) +
-  theme_bw()
+  scale_y_continuous(breaks=c(0,125,250,375,500,625,750), expand=c(0,0)) # +
+  # theme_bw()
 
 # log of length
 data.frame_bed$length_log <- log(data.frame_bed$length)
@@ -130,7 +134,9 @@ ggplot(data.frame_bed, aes(x=length)) +
   stat_density(aes(y=..count..), color="black", fill="blue", alpha=0.1) +
   scale_x_continuous(breaks=c(0, 30, 120,600), trans="log1p", expand=c(0,0)) +
   scale_y_continuous(breaks=seq(0, 25000, 5000), expand=c(0,0)) +
-  theme_bw()
+  labs(title=main_title, x=x_l, y=y_l) + 
+  theme(plot.title = element_text(hjust = 0.5))# +
+  # theme_bw()
 
 hist_br_100 <- hist(data.frame_bed$length_log, breaks=100 )
 # hist(data.frame_bed$length_log, breaks=100 )$mids
@@ -146,16 +152,25 @@ ggplot(data.frame_bed, aes(x=length_log)) +
   stat_density(aes(y=..count..), color="black", fill="blue", alpha=0.1) +
   scale_x_continuous(breaks=c(0:9), expand=c(0,0)) +
   scale_y_continuous(breaks=seq(0, 25000, 5000), expand=c(0,0)) +
-  theme_bw() + geom_vline(xintercept=min_values, linetype="dashed")
+  geom_vline(xintercept=min_values, linetype="dashed") +
+  labs(title=main_title, x=x_l, y=y_l) + 
+  theme(plot.title = element_text(hjust = 0.5))# +
+  # theme_bw()
   
 # exp(3.375) # aprox 30
 v_line_intercept <- exp(min_values)
-
+v_line_intercept <- 30
 ggplot(data.frame_bed, aes(x=length)) +
   stat_density(aes(y=..count..), color="black", fill="blue", alpha=0.3) +
   scale_x_continuous(breaks=c(0, 30, 120,600), trans="log1p", expand=c(0,0)) +
   scale_y_continuous(breaks=seq(0, 25000, 5000), expand=c(0,0)) +
-  theme_bw() + geom_vline(xintercept=v_line_intercept, linetype="dotted")
+  geom_vline(xintercept=v_line_intercept, linetype="dashed") +
+  labs(title=main_title, x=x_l, y=y_l) + 
+  theme(plot.title = element_text(hjust = 0.5)) #+
+  # theme_bw()
+
+# width=plot_width, height=plot_height, dpi=300
+ggsave (file="/Users/jespinosa/git/mouse_chrom_hmm/distro_meal_length_dev.png")
 
 # hist(data.frame_bed$length, log="x", breaks=200, xlim=c(100,10000))
 # quantile(data.frame_bed$length_log)

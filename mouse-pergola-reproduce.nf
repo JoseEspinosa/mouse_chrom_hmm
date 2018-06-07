@@ -334,27 +334,9 @@ process bin_binarize {
 }
 
 /*
- * chromHMM binarizes feeding bed files
+ * chromHMM learn model
+ * In this case we use to learn the model all the data
  */
-/*
-process binarize {
-    publishDir "results/", mode: 'copy', overwrite: 'true'
-
-    input:
-    file chrom_sizes from chrom_sizes_chromHMM_b
-    file dir_bed_feeding from dir_bed_to_chromHMM, dir_bed_i_habituation
-    file cellmarkfiletable from cell_mark_file_tbl
-
-    output:
-    file 'output_dir' into output_dir_binarized
-
-
-    """
-    mkdir output_dir
-    java -mx4000M -jar /ChromHMM/ChromHMM.jar BinarizeBed -b 300 -peaks ${chrom_sizes} ${dir_bed_feeding} ${cellmarkfiletable} output_dir
-    """
-}
-*/
 
 n_states = 3
 process HMM_model_learn {
@@ -369,6 +351,7 @@ process HMM_model_learn {
     file 'output_learn/*dense*.bed' into HMM_model_ANNOTATED_STATES
     file 'output_learn/*.*' into HMM_full_results
     file '*.bed' into segmentation_bed
+
     """
     mkdir output_learn
 
@@ -393,11 +376,12 @@ process HMM_model_learn {
 
         java -mx4000M -jar /ChromHMM/ChromHMM.jar MakeBrowserFiles -c colormappingfile \${dense_file} \${mice_id} \${filename}
     done
-
-
     """
 }
 
+/*
+ *
+ */
 process plot_HMM_states {
     publishDir "results/", mode: 'copy', overwrite: 'true'
 

@@ -76,6 +76,11 @@ setwd(pwd)
 
 data.frame_bed$length <- data.frame_bed$V3 - data.frame_bed$V2
 x <- data.frame_bed$length 
+
+x_l <- "\nLength of meals"
+y_l <- "Counts\n"
+main_title <- "Distribution of meal length\nduring habituation\n"
+
 # data.frame_bed_lt_1000 <- data.frame_bed [which(data.frame_bed$length > 1000), ]
 
 h<-hist (data.frame_bed$length)
@@ -152,7 +157,12 @@ ggplot(data.frame_bed, aes(x=length)) +
   stat_density(aes(y=..count..), color="black", fill="blue", alpha=0.3) +
   scale_x_continuous(breaks=c(0, 30, 120,600), trans="log1p", expand=c(0,0)) +
   scale_y_continuous(breaks=seq (0, 1500, 125), expand=c(0,0)) +
-  theme_bw() + geom_vline(xintercept=v_line_intercept, linetype="dotted")
+  geom_vline(xintercept=v_line_intercept, linetype="dashed") +
+  labs(title=main_title, x=x_l, y=y_l) + 
+  theme(plot.title = element_text(hjust = 0.5)) #+
+  # theme_bw() 
+
+ggsave (file="/Users/jespinosa/git/mouse_chrom_hmm/distro_meal_length_hab.png")
 
 # hist(data.frame_bed$length, log="x", breaks=200, xlim=c(100,10000))
 quantile(data.frame_bed$length_log)
@@ -177,5 +187,3 @@ quantile(data.frame_bed$length_log)
 # exp(3.663562) # 182.0001
 # exp(5.049856) # 476.9998
 # exp(7.557229) # 1914
-
-# ggsave (file=name_file, width=plot_width, height=plot_height, dpi=300)
