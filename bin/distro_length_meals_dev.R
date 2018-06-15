@@ -160,9 +160,10 @@ ggplot(data.frame_bed, aes(x=length_log)) +
 # exp(3.375) # aprox 30
 v_line_intercept <- exp(min_values)
 v_line_intercept <- 30
+h<-7.1
 ggplot(data.frame_bed, aes(x=length)) +
   stat_density(aes(y=..count..), color="black", fill="blue", alpha=0.3) +
-  scale_x_continuous(breaks=c(0, 30, 120,600), trans="log1p", expand=c(0,0)) +
+  scale_x_continuous(breaks=sort(c(0, 30, 120,600, v_line_intercept)), trans="log1p", expand=c(0,0)) +
   scale_y_continuous(breaks=seq(0, 25000, 5000), expand=c(0,0)) +
   geom_vline(xintercept=v_line_intercept, linetype="dashed") +
   labs(title=main_title, x=x_l, y=y_l) + 
@@ -183,7 +184,8 @@ ggsave (file="/Users/jespinosa/git/mouse_chrom_hmm/distro_meal_length_dev.png")
 # exp(6.359574) # 578
 
 ## Terciles habituation data
-# quantile(data.frame_bed$length_log, probs = seq(0, 1, 0.33))
+quantile(data.frame_bed$length_log, probs = seq(0, 1, 0.33))
+quantile(data.frame_bed$length, probs = seq(0, 1, 0.33))
 # exp(2.079442) 
 # exp(5.204007) # 182.0001
 # exp(6.167516) # 476.9998

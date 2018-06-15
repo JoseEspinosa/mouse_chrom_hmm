@@ -166,6 +166,7 @@ ggsave (file="/Users/jespinosa/git/mouse_chrom_hmm/distro_meal_length_hab.png")
 
 # hist(data.frame_bed$length, log="x", breaks=200, xlim=c(100,10000))
 quantile(data.frame_bed$length_log)
+# quantile(data.frame_bed$length)
 # 0%      25%      50%      75%     100% 
 # 2.079442 4.890349 5.736567 6.359574 8.585226
 
@@ -175,7 +176,7 @@ quantile(data.frame_bed$length_log)
 # exp(6.359574) # 578
 
 ## Terciles habituation data
-# quantile(data.frame_bed$length_log, probs = seq(0, 1, 0.33))
+quantile(data.frame_bed$length_log, probs = seq(0, 1, 0.33))
 # exp(2.079442) 
 # exp(5.204007) # 182.0001
 # exp(6.167516) # 476.9998
