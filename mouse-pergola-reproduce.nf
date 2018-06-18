@@ -176,6 +176,7 @@ def igv_files_by_group ( file ) {
  */
 process convert_bed {
     publishDir params.output_res, mode: 'copy', pattern: "tr*food*.bed", saveAs: this.&igv_files_by_group
+    publishDir "results_bed/", mode: 'copy', pattern: "tr_*.bed", overwrite: 'true'
 
   	input:
   	file ('batch') from mice_files_bed
@@ -184,7 +185,7 @@ process convert_bed {
 
   	output:
   	file 'tr*food*.bed' into bed_out, bed_out_shiny_p, bed_out_gviz, bed_out_sushi
-  	file 'dir_bed' into dir_bed_to_chromHMM
+  	file 'dir_bed' into dir_bed_to_bin
   	file 'dir_bed_hab' into dir_bed_i_habituation
   	// file 'tr*{water,sac}*.bed' into bed_out_drink
   	file 'phases_light.bed' into phases_night
@@ -265,7 +266,7 @@ process intersect_bed_habituation {
 
     rm -f habituation.tr*.bed
 
-    for file_bed in *.bed
+    for file_bed in tr_*.bed
     do
 	    bedtools intersect -a \${file_bed} -b ${habituation} > "habituation."\${file_bed}
     done
@@ -294,16 +295,152 @@ process convert_bedGraph {
   	"""
 }
 
+/*
+ * Binning of meals based on meal duration
+ */
+n_bins = 5
+process bin {
+
+    publishDir "results/", mode: 'copy', overwrite: 'true'
+
+    input:
+    file (dir_bed_feeding) from dir_bed_to_bin
+    file 'cellmarkfiletable' from cell_mark_file_tbl
+
+    output:
+    file 'bed_binned' into dir_bed_binned
+    file '*.binned' into cell_mark_file_tbl_binned
+    file "meal_length_distro_binned.${image_format}" into plot_distro_binned
+
+    """
+    distro_meals_to_bin.R --path_bed_files=${dir_bed_feeding} \
+                          --n_bins=${n_bins} \
+                          --image_format=${image_format} > bins.txt
+
+    for file_bed in ${dir_bed_feeding}/*.bed
+    do
+        # bin_length_by_sliding_win.py -b \${file_bed} -ct 1 604800 -bins "\$(< bins.txt)"
+        bin_length_by_sliding_win.py -b \${file_bed} -bins "\$(< bins.txt)"
+    done
+
+    mkdir bed_binned
+    mv *.bed bed_binned
+
+    bins_string="\$(tr -d "\n\r" < bins.txt)"
+    IFS=' ' read -r -a bins_ary <<< \$bins_string
+
+    length_ary=\${#bins_ary[@]}
+    i_last=\$((length_ary-1))
+    i_for=\$((length_ary-2))
+
+    awk -v bin_0=\${bins_ary[0]} \
+        '{print \$1"\t0_"bin_0"_"\$2"\t0_"bin_0"_"\$3}' cellmarkfiletable > "${cellmarkfiletable}.binned"
+
+    for index in \$(seq 0 \$i_for); do
+        next_i=\$((index+1))
+        awk -v bin_1=\${bins_ary[index]} -v bin_2=\${bins_ary[next_i]} \
+            '{print \$1"\t"bin_1"_"bin_2"_"\$2"\t"bin_1"_"bin_2"_"\$3}' cellmarkfiletable >> "${cellmarkfiletable}.binned"
+    done
+
+    awk -v  bin_l=\${bins_ary[i_last]} \
+        '{print \$1"\t"bin_l"_"\$2"\t"bin_l"_"\$3}' cellmarkfiletable >> "${cellmarkfiletable}.binned"
+    """
+}
 
 /*
  * chromHMM binarizes feeding bed files
  */
+process binarize {
+    publishDir "results/", mode: 'copy', overwrite: 'true'
+
+    input:
+    file chrom_sizes from chrom_sizes_chromHMM_b
+    file dir_bed_binned from dir_bed_binned
+    file 'cellmarkfiletable_binned' from cell_mark_file_tbl_binned
+
+    output:
+    file 'output_dir' into output_dir_binarized
+
+    """
+    mkdir output_dir
+
+    java -mx4000M -jar /ChromHMM/ChromHMM.jar BinarizeBed -b 300 -peaks ${chrom_sizes} ${dir_bed_binned} ${cellmarkfiletable_binned} output_dir
+    """
+}
+
+/*
+ * chromHMM learn model
+ * In this case we use to learn the model all the data
+ */
+n_states = 3
+process HMM_model_learn {
+
+    publishDir "${params.output_res}/chromHMM", mode: 'copy', overwrite: 'true'
+
+    input:
+    file chrom_sizes from chrom_sizes_chromHMM_l
+    file 'input_binarized' from output_dir_binarized
+
+    output:
+    file 'output_learn/*dense*.bed' into HMM_model_ANNOTATED_STATES
+    file 'output_learn/*.*' into HMM_full_results
+    file '*.bed' into segmentation_bed
+
+    """
+    mkdir output_learn
+
+    # blue 1 active
+    echo -e "1\t0,0,255" > colormappingfile
+    # red 2 resting
+    echo -e "2\t255,0,0" >> colormappingfile
+    # yellow 3 snacking
+    echo -e "3\t255,255,0" >> colormappingfile
+    # green 4
+    echo -e "4\t0,255,0" >> colormappingfile
+
+    # java -mx4000M -jar /ChromHMM/ChromHMM.jar LearnModel -b 300 -l  ${chrom_sizes}  -printstatebyline test_feeding/output/outputdir test_feeding/output/outputdir_learn ${n_states} test_feeding/input/chrom.sizes
+    java -mx4000M -jar /ChromHMM/ChromHMM.jar LearnModel -b 300 \
+                                                         -l ${chrom_sizes} \
+                                                         input_binarized output_learn \
+                                                         ${n_states} ${chrom_sizes}
+
+    for dense_file in output_learn/*segments*.bed
+    do
+        filename=\$(basename -- "\$dense_file")
+        filename="\${filename%.*}"
+        mice_id=\$(echo \$filename | cut -f2 -d_)
+
+        java -mx4000M -jar /ChromHMM/ChromHMM.jar MakeBrowserFiles -c colormappingfile \${dense_file} \${mice_id} \${filename}
+    done
+    """
+}
+
+
+/*
+
+rm -f [0-9]*.bed
+
+    for file_bed in ${dir_bed_feeding}/*.bed
+    do
+        # bin_length_by_sliding_win.py -b \${file_bed} -ct 1 604800 -bins 30 120
+        bin_length_by_sliding_win.py -b \${file_bed} -ct ${start} ${end} -bins ${bins}
+    done
+    echo ${index}
+    mkdir output_bed_binned
+    mv *.bed output_bed_binned
+*/
+
+/*
+ * chromHMM binarizes feeding bed files
+ */
+/*
 process bin_binarize {
     publishDir "results/", mode: 'copy', overwrite: 'true'
 
     input:
     file chrom_sizes from chrom_sizes_chromHMM_b
-    file dir_bed_feeding from dir_bed_to_chromHMM
+    // file dir_bed_feeding from dir_bed_to_chromHMM
+    file dir_bed_feeding from dir_bed_to_bin
     file 'cellmarkfiletable' from cell_mark_file_tbl
 
     output:
@@ -332,12 +469,13 @@ process bin_binarize {
     java -mx4000M -jar /ChromHMM/ChromHMM.jar BinarizeBed -b 300 -peaks ${chrom_sizes} ${dir_bed_feeding} "${cellmarkfiletable}.binned" output_dir
     """
 }
+*/
 
 /*
  * chromHMM learn model
  * In this case we use to learn the model all the data
  */
-
+/*
 n_states = 3
 process HMM_model_learn {
 
@@ -378,7 +516,7 @@ process HMM_model_learn {
     done
     """
 }
-
+*/
 /*
  *
  */
@@ -394,7 +532,7 @@ process plot_HMM_states {
     """
     plot_HMM_segmentation.R --path_bed_files=output_learn \
                             --ini_time=0 \
-                            --end_time=1814400 \
+                            # --end_time=1814400 \
                             --image_format=${image_format}
     """
 }
