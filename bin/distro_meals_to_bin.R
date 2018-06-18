@@ -42,8 +42,9 @@ if("--help" %in% args) {
       
       Arguments:
       --path_bed_files=path_bed_files - character
+      --n_bins=n_bins                 - integer
       --image_format=image_format     - character
-      --help                      - print this text
+      --help                          - print this text
       
       Example:
       ./distro_meals_to_bin.R --path_bed_files=\"path_bed_files\" --image_format=\"image_format\" \n")
@@ -74,6 +75,19 @@ names (argsL) <- argsDF$V1
   }
 }
 
+# path to files
+{
+  if (is.null (argsL$n_bins))
+  {
+    n_bins <- 3
+    warning ("[Warning]: number of bins set to default (3)")
+  }
+  else
+  {
+    n_bins <- as.integer(argsL$n_bins)
+  }
+}
+ 
 # plot image format
 {
   if (is.null (argsL$image_format))
@@ -132,10 +146,8 @@ setwd(pwd)
 
 data.frame_bed$length <- data.frame_bed$V3 - data.frame_bed$V2
 
-## Deciles of meal length
-# intercepts <- quantile(data.frame_bed$length, probs = seq(0.1, 1, 0.1))
-intercepts <- quantile(data.frame_bed$length, probs = seq(0.1, 1, 0.1))
-# intercepts <- quantile(data.frame_bed$length, probs = seq(0.33, 1, 0.33))
+## binning base on number of means
+intercepts <- unname(quantile(data.frame_bed$length, probs = seq(1/n_bins, 1, 1/n_bins)))
 intercepts <- intercepts[1:(length(intercepts)-1)]
 
 write(cat(intercepts), stdout())
@@ -150,7 +162,8 @@ data.frame_bed$length_log <- log(data.frame_bed$length)
 
 ggplot(data.frame_bed, aes(x=length)) +
   stat_density(aes(y=..count..), color="black", fill="blue", alpha=0.1) +
-  scale_x_continuous(breaks=c(0, 10, 100, 1000), trans="log1p", expand=c(0,0)) +
+  scale_x_continuous(breaks=sort(c(0, 10, 100, 1000, intercepts)), trans="log1p", expand=c(0,0)) +
+  # scale_x_continuous(breaks=c(0, 10, 100, 1000), trans="log1p", expand=c(0,0)) +
   scale_y_continuous(breaks=seq(0, 25000, 5000), expand=c(0,0)) +
   geom_vline(xintercept=intercepts, linetype="dashed") +
   labs(title=main_title, x=x_l, y=y_l) +
