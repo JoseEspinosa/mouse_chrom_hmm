@@ -475,7 +475,7 @@ process bin_binarize {
  * chromHMM learn model
  * In this case we use to learn the model all the data
  */
-/*
+
 n_states = 3
 process HMM_model_learn {
 
@@ -516,7 +516,7 @@ process HMM_model_learn {
     done
     """
 }
-*/
+
 /*
  *
  */
@@ -536,44 +536,3 @@ process plot_HMM_states {
                             --image_format=${image_format}
     """
 }
-
-/*
-
-for dense_file in output_learn/*segments*.bed
-    do
-        filename=\$(basename -- "\$dense_file")
-        filename="\${filename%.*}"
-        mice_id=\$(echo \$filename | cut -f2 -d_)
-
-        java -mx4000M -jar /ChromHMM/ChromHMM.jar MakeBrowserFiles -c colormappingfile \${dense_file} \${mice_id} \${filename}
-        # MakeBrowserFiles –c colormappingfile \${dense_file} segmentationname culo
-    done
-
-MakeBrowserFiles –c colormappingfile \${dense_file} segmentationname culo
-
-fullfile="/Users/jespinosa/scratch/5f/51be48a0ba8c8ce7d1a07758ffdff7/output_learn/tr_10_3_dense.bed"
-filename=$(basename -- "$fullfile")
-filename="${filename%.*}"
-
--stateordering emission
--c colormappingfile
-
-java -mx4000M -jar /Users/jespinosa/software/ChromHMM/ChromHMM.jar MakeBrowserFiles –c colormappingfile tr_18_3_segments.bed segmentationname outputfileprefix
-java -mx4000M -jar /Users/jespinosa/software/ChromHMM/ChromHMM.jar MakeBrowserFiles -c colormappingfile tr_1_3_segments.bed tr_1_annotated colored
-
-Check the stability
-mask parts of the genome
-
-# blue 1 active
-echo -e "1\t0,0,255" > colormappingfile
-# red 2 resting
-echo -e "2\t255,0,0" >> colormappingfile
-# yellow 3 snacking
-echo -e "3\t255,255,0" >> colormappingfile
-java -mx4000M -jar /Users/jespinosa/software/ChromHMM.jar  MakeBrowserFiles –c colormappingfile  tr_18_3_segments.bed segmentationname culo
-
-
-track name="1_Habituation" description="1 Development_Habituation" visibility=2 itemRgb="On" priority=20
-chr1    595585  1807822 Development     1000    +       595585  1807822 0,0,128
-
-*/
